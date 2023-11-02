@@ -18,6 +18,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+from Snake import snake_contour
+
 im_dir = '/content/drive/MyDrive/Washers/Experiments/Tifs for Jason - uploaded 1017/Multi-class images (for later)/230313 Tm month block 0.1/Tm_bf002_35.1_BF.tif'
 im = cv2.imread(im_dir)
 im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -57,10 +59,11 @@ def get_ref(img_ref, n_angles=10, plot=False):
     b.append(ndimage.rotate(a, 90//n_angles*i, reshape=True))
   for i in range(n_angles):
     snake_list.append(rotate_snake(snake,angle=90//n_angles*i))
-  for init in snake_list:
+  for i, init in enumerate(snake_list):
     a = np.mean(init,axis=0)
-    init = init* 0.5
+    init = init* 0.75
     init += a - np.mean(init,axis=0)
+    snake_list[i] = init
   return b, snake_list
 
 def rotate_snake(snake, angle):#angle degrees
@@ -190,7 +193,9 @@ def disp_particles(im_dir, x, y):
   plt.scatter(y,x, c='r')
   plt.show()
 
-def snake_crop(im_dir, x, y, z, disp=True):
+def snake_crop(im_dir, x, y, z, delta = -0.003, disp=True):
+  # delta negative means a clockwise contour will move out and a ccw curve will move in
+  # delta positive and vice versa
   im = cv2.imread(im_dir)
   im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
   crop_list = []
@@ -206,10 +211,8 @@ def snake_crop(im_dir, x, y, z, disp=True):
     mean = np.mean(init,axis=0, dtype=int)
     init += [175,175] - mean #[175,175] is center of cropped region and also corresponds to the ping
 
-
-
-    snake = active_contour(gaussian(img, 3, preserve_range=False),
-                          init, alpha=0.03, beta=10, gamma=0.001) #alpha=0.015
+    snake = snake_contour(img,init,alpha=0.03, beta=10, gamma=0.001, delta=delta)
+    
     crop_list.append((img,snake, init))
     if disp:
       fig, ax = plt.subplots(figsize=(7, 7))
@@ -263,14 +266,15 @@ def save_detect(im_dir, save_dir, x_square, y_square, z_square, x_circle, y_circ
   plt.figure(figsize=(10,10))
   
   if edge_crop:
-    edge_dist = 150
+    height,width,_ = im.shape
+    edge_dist = 140
     edge_mask = np.logical_or.reduce((y_circle<edge_dist, y_circle>height-edge_dist, x_circle<edge_dist, x_circle>width-edge_dist))
-    x_circle = x_circle[edge_mask]
-    y_circle = y_circle[edge_mask]
+    x_circle = x_circle[~edge_mask]
+    y_circle = y_circle[~edge_mask]
 
     edge_mask = np.logical_or.reduce((y_square<edge_dist, y_square>height-edge_dist, x_square<edge_dist, x_square>width-edge_dist))
-    x_square = x_square[edge_mask]
-    y_square = y_square[edge_mask]
+    x_square = x_square[~edge_mask]
+    y_square = y_square[~edge_mask]
 
   if segment:
      

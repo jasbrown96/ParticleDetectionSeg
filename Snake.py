@@ -32,7 +32,7 @@ def GetContourNormals2D(xt,yt, a=4):
     return nx,ny
 
 
-def snake(image, snake, alpha=0.01, beta=0.1, w_line=0, w_edge=1,  gamma=0.01,
+def snake_contour(image, snake, alpha=0.01, beta=0.1, w_line=0, w_edge=1,  gamma=0.01,
                    max_px_move=1.0,max_num_iter=2500, convergence=0.1, delta = 0.01):
 
 
