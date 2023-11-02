@@ -193,7 +193,7 @@ def disp_particles(im_dir, x, y):
   plt.scatter(y,x, c='r')
   plt.show()
 
-def snake_crop(im_dir, x, y, z, delta = -0.003, disp=True):
+def snake_crop(im_dir, x, y, z, delta = -0.00375, disp=True):
   # delta negative means a clockwise contour will move out and a ccw curve will move in
   # delta positive and vice versa
   im = cv2.imread(im_dir)
