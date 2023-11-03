@@ -103,7 +103,7 @@ def non_max_suppression(accumulator, thresh, distance):
     x,y = np.nonzero(accumulator>thresh)
     z = None
   if x.size == 0:    #I.e. x is empty
-    return None, None
+    return None, None, None
   feat = np.vstack((x,y)).T
   dist = pairwise_distances(feat)
   temp = np.amax(accumulator,axis=2)
@@ -130,7 +130,27 @@ def circle_filter(pts1, pts2, dist):
         break
   return x1[mask], y1[mask], z[mask]
 
-ref, snake_list = get_ref(img_ref)
+
+def FindArea(P):
+  O = np.zeros((P.shape[0]+1,P.shape[1]))
+  O[:-1,:] = P
+  O[-1:,:] = P[:1,:]
+  #O = np.append(P,(P[0:2,:],axis=0))
+  #print(O)
+  area = 0.5 * (O[:-1,0] @ O[1:,1] - O[1:,0] @ O[:-1,1])
+  return area
+
+def MakeContourCounterClockwise2D(P):
+  # https://www.themathdoctors.org/polygon-coordinates-and-areas/
+  #P - Nx2 contour numpy array
+  area = FindArea(P)
+  if area<0:
+    return P[::-1]
+  else:
+    return P
+  
+  
+ref, snake_list = get_ref(img_ref) ###### Note this #######
 
 def detect_squares(image_dir, ref=ref, threshold=70):
 
@@ -149,7 +169,7 @@ def detect_squares(image_dir, ref=ref, threshold=70):
 
   x,y,z = non_max_suppression(accumulator_square, thresh=threshold, distance=150)
   if x is None:
-    return None, None#, accumulator_square
+    return np.array([]), np.array([]), np.array([])#, accumulator_square
 
   return x,y,z#, accumulator_square
 
@@ -177,7 +197,7 @@ def detect_squares_nocirc(image_dir, ref=ref, thresh_square=70, thresh_circle=0.
 
   x1,y1,z = detect_squares(image_dir, ref=ref, threshold=thresh_square)
   if x1 is None:
-    return [], []
+    return np.array([]), np.array([]), np.array([])
 
   x2,y2,z = circle_filter([x1,y1,z], [x,y], dist=150)
   return x2,y2,z
@@ -193,9 +213,7 @@ def disp_particles(im_dir, x, y):
   plt.scatter(y,x, c='r')
   plt.show()
 
-def snake_crop(im_dir, x, y, z, delta = -0.00375, disp=True):
-  # delta negative means a clockwise contour will move out and a ccw curve will move in
-  # delta positive and vice versa
+def snake_crop(im_dir, x, y, z, delta = 0.004, disp=True):
   im = cv2.imread(im_dir)
   im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
   crop_list = []
@@ -203,16 +221,36 @@ def snake_crop(im_dir, x, y, z, delta = -0.00375, disp=True):
     #print(max(0,x[i]-175), min(im.shape[0], x[i]+175), max(0,y[i]-175), max(im.shape[1],y[i]+175) )
     t,b,l,r = max(0,x[i]-175), min(im.shape[0], x[i]+175), max(0,y[i]-175), min(im.shape[1],y[i]+175)
     img = im[t:b,l:r]
-    #s = np.linspace(0, 2*np.pi, 400)
-    #r = 150 + 200*np.sin(s)
-    #c = 150 + 200*np.cos(s)
-    #init = np.array([r, c]).T
+
     init = snake_list[z[i]]
     mean = np.mean(init,axis=0, dtype=int)
     init += [175,175] - mean #[175,175] is center of cropped region and also corresponds to the ping
 
     snake = snake_contour(img,init,alpha=0.03, beta=10, gamma=0.001, delta=delta)
+    #print(FindArea(snake))
     
+    adapt_Delta = delta
+    step = 0.00015
+    toobig = False
+    toosmall = False
+    count = 0
+    while ((FindArea(snake) > 58000) or (FindArea(snake) < 50000)) and (count <10):
+      if(FindArea(snake) > 58000):
+        if toosmall:
+          step /= 2
+          toosmall = False
+        adapt_Delta -= step
+        toobig=True
+      if (FindArea(snake) < 50000):
+        if toobig:
+          step /= 2
+          toobig = False
+        adapt_Delta += step
+        toosmall = True
+      snake = snake_contour(img,init,alpha=0.03, beta=10, gamma=0.001, delta=adapt_Delta)
+      count = count +1
+    
+
     crop_list.append((img,snake, init))
     if disp:
       fig, ax = plt.subplots(figsize=(7, 7))
