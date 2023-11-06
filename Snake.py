@@ -8,6 +8,24 @@ from skimage.filters import sobel
 from skimage.util import img_as_float
 from skimage._shared.utils import _supported_float_type
 
+def FindArea(P):
+  O = np.zeros((P.shape[0]+1,P.shape[1]))
+  O[:-1,:] = P
+  O[-1:,:] = P[:1,:]
+  #O = np.append(P,(P[0:2,:],axis=0))
+  #print(O)
+  area = 0.5 * (O[:-1,0] @ O[1:,1] - O[1:,0] @ O[:-1,1])
+  return area
+
+def MakeContourCounterClockwise2D(P):
+  # https://www.themathdoctors.org/polygon-coordinates-and-areas/
+  #P - Nx2 contour numpy array
+  area = FindArea(P)
+  if area<0:
+    return P[::-1]
+  else:
+    return P
+  
 def GetContourNormals2D(xt,yt, a=4):
     # Extract x and y coordinates
     #xt = P[:, 0]
@@ -32,10 +50,10 @@ def GetContourNormals2D(xt,yt, a=4):
     return nx,ny
 
 
-def snake_contour(image, snake, alpha=0.01, beta=0.1, w_line=0, w_edge=1,  gamma=0.01,
+def snake_contour(image, snake, alpha=0.01, beta=0.1, w_line=0, w_edge=1.5,  gamma=0.01,
                    max_px_move=1.0,max_num_iter=2500, convergence=0.1, delta = 0.01):
 
-
+  snake = MakeContourCounterClockwise2D(snake)
   image = gaussian(image, 3, preserve_range=False)
 
   img = img_as_float(image)

@@ -18,7 +18,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-from Snake import snake_contour
+from Snake import snake_contour, FindArea
 
 im_dir = '/content/drive/MyDrive/Washers/Experiments/Tifs for Jason - uploaded 1017/Multi-class images (for later)/230313 Tm month block 0.1/Tm_bf002_35.1_BF.tif'
 im = cv2.imread(im_dir)
@@ -130,24 +130,6 @@ def circle_filter(pts1, pts2, dist):
         break
   return x1[mask], y1[mask], z[mask]
 
-
-def FindArea(P):
-  O = np.zeros((P.shape[0]+1,P.shape[1]))
-  O[:-1,:] = P
-  O[-1:,:] = P[:1,:]
-  #O = np.append(P,(P[0:2,:],axis=0))
-  #print(O)
-  area = 0.5 * (O[:-1,0] @ O[1:,1] - O[1:,0] @ O[:-1,1])
-  return area
-
-def MakeContourCounterClockwise2D(P):
-  # https://www.themathdoctors.org/polygon-coordinates-and-areas/
-  #P - Nx2 contour numpy array
-  area = FindArea(P)
-  if area<0:
-    return P[::-1]
-  else:
-    return P
   
   
 ref, snake_list = get_ref(img_ref) ###### Note this #######
@@ -213,7 +195,7 @@ def disp_particles(im_dir, x, y):
   plt.scatter(y,x, c='r')
   plt.show()
 
-def snake_crop(im_dir, x, y, z, delta = 0.004, disp=True):
+def snake_crop(im_dir, x, y, z, delta = 0.003, disp=True):
   im = cv2.imread(im_dir)
   im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
   crop_list = []
@@ -222,26 +204,33 @@ def snake_crop(im_dir, x, y, z, delta = 0.004, disp=True):
     t,b,l,r = max(0,x[i]-175), min(im.shape[0], x[i]+175), max(0,y[i]-175), min(im.shape[1],y[i]+175)
     img = im[t:b,l:r]
 
-    init = snake_list[z[i]]
+    #init = snake_list[z[i]]
+    s = np.linspace(0, 2*np.pi, 400)
+    r = 110*np.sin(s)
+    c = 110*np.cos(s)
+    init = np.array([r, c]).T
+
     mean = np.mean(init,axis=0, dtype=int)
     init += [175,175] - mean #[175,175] is center of cropped region and also corresponds to the ping
 
     snake = snake_contour(img,init,alpha=0.03, beta=10, gamma=0.001, delta=delta)
     #print(FindArea(snake))
-    
+
     adapt_Delta = delta
     step = 0.00015
     toobig = False
     toosmall = False
     count = 0
-    while ((FindArea(snake) > 58000) or (FindArea(snake) < 50000)) and (count <10):
-      if(FindArea(snake) > 58000):
+    upperArea = 58000
+    lowerArea = 54500
+    while ((FindArea(snake) > upperArea) or (FindArea(snake) < lowerArea)) and (count <20):
+      if(FindArea(snake) > upperArea):
         if toosmall:
           step /= 2
           toosmall = False
         adapt_Delta -= step
         toobig=True
-      if (FindArea(snake) < 50000):
+      if (FindArea(snake) < lowerArea):
         if toobig:
           step /= 2
           toobig = False
@@ -249,7 +238,6 @@ def snake_crop(im_dir, x, y, z, delta = 0.004, disp=True):
         toosmall = True
       snake = snake_contour(img,init,alpha=0.03, beta=10, gamma=0.001, delta=adapt_Delta)
       count = count +1
-    
 
     crop_list.append((img,snake, init))
     if disp:
