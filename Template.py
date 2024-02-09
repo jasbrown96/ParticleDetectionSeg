@@ -20,12 +20,7 @@ import os
 
 from Snake import snake_contour, FindArea
 
-im_dir = '/content/drive/MyDrive/Washers/Experiments/Tifs for Jason - uploaded 1017/Multi-class images (for later)/230313 Tm month block 0.1/Tm_bf002_35.1_BF.tif'
-im = cv2.imread(im_dir)
-im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-#plt.imshow(im)
-img_ref = im[285:605,380:700]
-#plt.imshow(img_ref)
+#### Generating the ref #####
 
 def get_ref(img_ref, n_angles=10, plot=False):
 
@@ -73,6 +68,19 @@ def rotate_snake(snake, angle):#angle degrees
   rot = np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle), np.cos(angle)]])
   temp = (rot@(snake-center).T).T
   return (temp+center).astype(int)
+
+
+
+
+ref_dir = './Reference.png'
+img_ref = cv2.imread(ref_dir)
+img_ref = cv2.cvtColor(img_ref, cv2.COLOR_BGR2GRAY)
+ref, snake_list = get_ref(img_ref) 
+
+###### Template Bank for Square is Generated #######
+
+
+
 
 def create_dir(results_dir):
   if not os.path.isdir(results_dir):
@@ -130,9 +138,6 @@ def circle_filter(pts1, pts2, dist):
         break
   return x1[mask], y1[mask], z[mask]
 
-  
-  
-ref, snake_list = get_ref(img_ref) ###### Note this #######
 
 def detect_squares(image_dir, ref=ref, threshold=70):
 
@@ -201,17 +206,19 @@ def snake_crop(im_dir, x, y, z, delta = 0.003, disp=True):
   crop_list = []
   for i in np.arange(len(x)):
     #print(max(0,x[i]-175), min(im.shape[0], x[i]+175), max(0,y[i]-175), max(im.shape[1],y[i]+175) )
-    t,b,l,r = max(0,x[i]-175), min(im.shape[0], x[i]+175), max(0,y[i]-175), min(im.shape[1],y[i]+175)
+    d = np.min((175,im.shape[1]-x[i],im.shape[0]-y[i], x[i], y[i]))
+    t,b,l,r = max(0,x[i]-d), min(im.shape[0], x[i]+d), max(0,y[i]-d), min(im.shape[1],y[i]+d)
     img = im[t:b,l:r]
 
     #init = snake_list[z[i]]
-    s = np.linspace(0, 2*np.pi, 400)
+    s = np.linspace(0, 2*np.pi, 380)
     r = 110*np.sin(s)
     c = 110*np.cos(s)
     init = np.array([r, c]).T
 
-    mean = np.mean(init,axis=0, dtype=int)
-    init += [175,175] - mean #[175,175] is center of cropped region and also corresponds to the ping
+    #mean = np.mean(init,axis=0, dtype=int)
+    #print(mean)
+    init += [d,d] #- mean #[175,175] is center of cropped region and also corresponds to the ping
 
     snake = snake_contour(img,init,alpha=0.03, beta=10, gamma=0.001, delta=delta)
     #print(FindArea(snake))
@@ -249,8 +256,8 @@ def snake_crop(im_dir, x, y, z, delta = 0.003, disp=True):
       ax.axis([0, img.shape[1], img.shape[0], 0])
 
       #plt.scatter(np.mean(snake,axis=0)[1], np.mean(snake,axis=0)[0])
-      plt.scatter(mean[0],mean[1],c='b')
-      plt.show()
+      #plt.scatter(mean[0],mean[1],c='b')
+      #plt.show()
       dist = dist_center(snake)
       plt.plot(dist)
       peaks = find_peaks(dist, prominence = 3)
@@ -267,7 +274,7 @@ def circle_crop(im_dir,cx,cy,radii, disp=True):
     circy,circx = circle_perimeter(center_x,center_y,radius,shape=image.shape)
     image[circy,circx] = (255,20,20)
 
-    t,b,l,r = max(0,center_x-radius), min(im.shape[0], center_x+radius), max(0,center_y-radius), min(im.shape[1],center_y+radius)
+    t,b,l,r = max(0,center_x-radius), min(image.shape[0], center_x+radius), max(0,center_y-radius), min(image.shape[1],center_y+radius)
     crop_list.append((image[t:b,l:r],[circx,circy]))
 
     if disp:
