@@ -5,7 +5,7 @@ The Libraries Needed are OpenCV, Numpy, Scipy, Skimage
 
 from Template import detect_squares_nocirc, detect_circles, save_detect, create_dir
 
-im_dir = './Test_BF.tif'
+im_dir = './##Desired BF image##'
 
 square_thresh = 60
 circle_thresh = 0.25
